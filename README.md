@@ -1,73 +1,158 @@
-# OSGB → H8-OBJ 倾斜摄影模型转换工具
+# OSGB → H8-OBJ
 
-将倾斜摄影 OSGB 瓦片数据转换为按 **H3 Level 8 网格** 合并的 OBJ 格式，支持坐标转换、纹理提取、法线计算。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
 
-## 功能
+**OSGB oblique photography tiles → H3 Level 8 merged OBJ converter.**
 
-- ✅ **OSGB 解析** — 使用 `osgconv` 提取几何信息（顶点、UV、面）
-- ✅ **纹理提取** — 从 OSGB 二进制直接搜索 JPEG 标记提取贴图（无需额外工具）
-- ✅ **坐标转换** — 上海地方坐标系 → WGS84 → EPSG:3857（float64 精度）
-- ✅ **H3 网格合并** — Level 8 网格分组合并，同网格内模型用同一坐标偏移
+Converts ContextCapture / RealityCapture / 重建大师 OSGB tile sets into OBJ format merged by **H3 Level 8 grid cells**, with coordinate transformation, texture extraction, auto-computed normals, and spatial index metadata.
+
+---
+
+## 🇨🇳 中文说明
+
+### 功能
+
+- ✅ **OSGB 解析** — 使用 `osgconv` 提取几何（顶点、UV、三角面）
+- ✅ **纹理提取** — 从 OSGB 二进制直接搜索 JPEG 标记 (`FF D8 FF`) 提取贴图
+- ✅ **坐标转换** — 上海地方坐标系 → EPSG:3857（float64 双精度，避免 0.5m 精度损失）
+- ✅ **H3 Level 8 网格合并** — 同一网格内模型合并，网格质心作为局部坐标偏移原点
 - ✅ **法线计算** — 自动计算 smooth vertex normals（osgconv 不输出法线）
-- ✅ **多材质支持** — 每瓦片独立材质（usemtl），各自引用纹理
-- ✅ **空间索引** — `metadata.xml` 含 SRSOrigin / H3Cell / WGS84Center
-- ✅ **进度条** — 实时显示转换进度和预估剩余时间
+- ✅ **多材质支持** — 每瓦片独立 `usemtl`，各自引用纹理
+- ✅ **空间索引** — 每个网格输出 `metadata.xml`（含 SRSOrigin / H3Cell / WGS84Center）
+- ✅ **进度条 + 续跑** — 实时显示进度/ETA，支持 `--resume` 跳过已转换瓦片
 
-## 环境要求
+### 管线流程
+
+```
+OSGB 原始坐标 (X_local, Y_local, Z)
+  ↓ + SRSOrigin
+上海投影坐标 (北京54/高斯-克吕格, 中央经线 121.467°)
+  ↓ pyproj (float64)
+WGS84 经纬度
+  ↓ pyproj
+EPSG:3857 (Web墨卡托)
+  ↓ - H8网格质心
+OBJ 局部坐标
+```
+
+### 安装
 
 ```bash
-# 系统
-sudo apt install openscenegraph unrar
-
-# Python
+sudo apt install -y openscenegraph unrar
 pip3 install numpy pyproj h3 Pillow
+
+git clone https://github.com/UVE1048/osgb2obj.git
+cd osgb2obj
 ```
 
-## 快速开始
+### 使用
 
 ```bash
+# 全量处理
 python3 osgb2h8obj.py --workers 4
+
+# 测试模式（先跑20个瓦片验证）
+python3 osgb2h8obj.py --test 20
+
+# 续跑模式（跳过 osgconv，只做合并）
+python3 osgb2h8obj.py --resume
 ```
 
-### 命令参数
+### 参数
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--input` | 输入 OSGB 数据目录 | `input_data/Data` |
-| `--output` | 输出目录 | `output_h8obj` |
-| `--work-dir` | 临时工作目录 | `work_temp` |
+| 参数 | 说明 | 默认 |
+|------|------|------|
+| `--input / -i` | 输入 OSGB 目录 | `Data/` |
+| `--output / -o` | 输出目录 | `output_h8obj/` |
+| `--work-dir / -w` | 临时工作目录 | `work_temp/` |
 | `--h3-level` | H3 网格级别 | `8` |
 | `--workers` | 并行线程数 | `4` |
-| `--test N` | 只处理前 N 个瓦片（测试用） | 全量 |
-| `--resume` | 从 work_temp 续跑（跳过 osgconv） | — |
+| `--test N` | 只处理前 N 个瓦片 | 全量 |
+| `--resume` | 从 work_temp 续跑 | — |
 
-## 输入输出结构
+---
 
-### 输入
+## 🇬🇧 English
+
+### Features
+
+- **OSGB parsing** via `osgconv` — geometry (vertices, UVs, faces)
+- **Texture extraction** — search JPEG markers (`FF D8 FF`) directly from OSGB binary
+- **Coordinate transformation** — Shanghai local → EPSG:3857 (float64, sub-mm precision)
+- **H3 Level 8 grid merging** — merge tiles in the same cell, centroid-relative local coordinates
+- **Smooth normals** — auto-computed (osgconv omits normals in OBJ output)
+- **Multi-material** — each tile gets its own `usemtl` with texture reference
+- **Spatial index** — `metadata.xml` per cell (SRSOrigin / H3Cell / WGS84Center)
+- **Progress bar + resume** — real-time progress/ETA, `--resume` skips completed tiles
+
+### Pipeline
+
 ```
-Data/
-├── Tile_+XXX_+YYY/
-│   ├── Tile_+XXX_+YYY.osgb            # 根节点
-│   ├── Tile_+XXX_+YYY_L14_0.osgb      # LOD层级
-│   ├── ...
-│   └── Tile_+XXX_+YYY_L22_*.osgb      # 叶子节点（处理目标）
-└── ...
+OSGB raw coords (X_local, Y_local, Z)
+  ↓ + SRSOrigin
+Shanghai projected (Beijing 1954 / Gauss-Kruger, central meridian 121.467°)
+  ↓ pyproj (float64)
+WGS84 lat/lng
+  ↓ pyproj
+EPSG:3857 (Web Mercator)
+  ↓ - H8 cell centroid
+OBJ local coords
 ```
 
-### 输出
+### Installation
+
+```bash
+sudo apt install -y openscenegraph unrar
+pip3 install numpy pyproj h3 Pillow
+
+git clone https://github.com/UVE1048/osgb2obj.git
+cd osgb2obj
+```
+
+### Usage
+
+```bash
+# Full processing
+python3 osgb2h8obj.py --workers 4
+
+# Test mode (first N tiles)
+python3 osgb2h8obj.py --test 20
+
+# Resume mode (skip osgconv, redo merging)
+python3 osgb2h8obj.py --resume
+```
+
+### Arguments
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `--input / -i` | OSGB data directory | `Data/` |
+| `--output / -o` | Output directory | `output_h8obj/` |
+| `--work-dir / -w` | Working temp directory | `work_temp/` |
+| `--h3-level` | H3 grid level | `8` |
+| `--workers` | Parallel workers | `4` |
+| `--test N` | Process first N tiles only | all |
+| `--resume` | Resume from work_temp | — |
+
+---
+
+## Output Structure
+
 ```
 output_h8obj/
-├── 88309b9XXXXXXXXX/               # H3 Level 8 网格
-│   ├── model.obj                   # 合并模型（float64，局部偏移坐标）
-│   ├── model.mtl                   # 材质文件（每瓦片独立材质）
-│   ├── metadata.xml                # 空间索引
+├── 88309b9XXXXXXXX/               # H3 Level 8 cell
+│   ├── model.obj                  # Merged mesh (float64, centroid-offset)
+│   ├── model.mtl                  # Per-tile materials
+│   ├── metadata.xml               # Spatial index
 │   └── textures/
-│       ├── tile_1_tex.jpg
+│       ├── tile_tex.jpg
 │       └── ...
-├── summary.json                    # 处理汇总
+└── summary.json                   # Processing summary
 ```
 
-### metadata.xml 格式
+### metadata.xml Format
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <ModelMetadata version="1">
@@ -80,29 +165,45 @@ output_h8obj/
 </ModelMetadata>
 ```
 
-OBJ 中的坐标 = 实际 EPSG:3857 坐标 − SRSOrigin
+> OBJ coordinates = actual EPSG:3857 coordinates − SRSOrigin (relative to cell centroid)
 
-## 坐标系处理
+---
 
-```
-上海地方坐标（北京54/高斯-克吕格，中央经线121.467°）
-  → 加 SRSOrigin（metadata.xml读取）
-  → pyproj 转 WGS84
-  → EPSG:3857（Web墨卡托，float64避免0.5m精度损失）
-  → H3质心偏移 → OBJ局部坐标
-```
+## Performance Reference
 
-如需适配其他坐标系，修改脚本中的 `SRC_CRS` 定义。
+| Metric | Value |
+|--------|-------|
+| Input tiles | 14,507 L22 tiles |
+| Total time | ~270s (4 workers) |
+| Per tile avg | ~0.036s |
+| Output H3 Level 8 cells | 20 |
+| Largest cell | 2,434 tiles / 4.8M verts / 6.5M faces |
+| Largest cell merge | ~40s |
+| Total output | ~15GB |
 
-## 性能参考
+---
 
-| 规模 | 耗时 |
-|------|------|
-| 14,507 个 L22 瓦片 | ~270s (4线程) |
-| 单个瓦片平均 | ~0.036s |
-| 最大网格合并 (2,434 tiles, 4.4M verts) | ~30s |
-| 总输出 | 15GB / 20 H3网格 |
+## Common Pitfalls
 
-## 脚本位置
+| Problem | Solution |
+|---------|----------|
+| `osgconv` omits normals | Script auto-computes smooth vertex normals |
+| Texture name conflicts | Each tile uses isolated work dir; output always overwrites |
+| Large cell merge timeout | Vectorized normals (`np.add.at`); use `--resume` for 2-phase run |
+| Coordinate precision loss | `float64` throughout; OBJ writes `{:.15f}` |
+| Source CRS not Shanghai | Modify `SRC_CRS` in script (e.g. `pyproj.CRS.from_epsg(32650)`) |
 
-`./osgb2obj/osgb2h8obj.py`
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE).
+
+## Author
+
+**UV E1048** ([@UVE1048](https://github.com/UVE1048))
+
+## Hermes Agent Skill
+
+This project ships as a [Hermes Agent](https://hermes-agent.nousresearch.com) skill.  
+If you use Hermes Agent, load it with `skill_view(name='osgb-to-obj-h8')`.

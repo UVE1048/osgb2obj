@@ -1,4 +1,13 @@
+# Generated output
+output_h8obj/
 work_temp/
+input_data/
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+
+# OS
 .DS_Store
+Thumbs.db

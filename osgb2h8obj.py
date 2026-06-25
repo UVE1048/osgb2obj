@@ -644,13 +644,13 @@ def find_leaf_tiles(input_dir):
 def main():
     parser = argparse.ArgumentParser(description='OSGB to H8-merged OBJ converter')
     parser.add_argument('--input', '-i', 
-                       default='/home/uve/projects/osgb2obj/input_data/掘石港坐标转换/Data',
-                       help='Input OSGB data directory')
+                       default='Data',
+                       help='Input OSGB data directory (with Tile_+XXX_+YYY/ subdirs)')
     parser.add_argument('--output', '-o',
-                       default='/home/uve/projects/osgb2obj/output_h8obj',
+                       default='output_h8obj',
                        help='Output directory')
     parser.add_argument('--work-dir', '-w',
-                       default='/home/uve/projects/osgb2obj/work_temp',
+                       default='work_temp',
                        help='Working directory for intermediate files')
     parser.add_argument('--h3-level', type=int, default=8,
                        help='H3 grid level (default: 8)')
